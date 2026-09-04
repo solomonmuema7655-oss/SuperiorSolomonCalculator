@@ -1,217 +1,75 @@
-name: Build Superior Solomon Calculator APK
+name: Build Android APK 
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "main.py"
-      - "buildozer.spec"
-      - ".github/workflows/build-apk.yml"
+push:
+branches: [ "main" ]
+pull_request:
+branches: [ "main" ]
+workflow_dispatch: 
 
 jobs:
-  build-android:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180
+build-android:
+runs-on: ubuntu-22.04 
 
-    steps:
-      - name: Checkout project
-        uses: actions/checkout@v4
+steps:
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+* name: Checkout Code
+uses: actions/checkout@v4
+* name: Set up Python
+uses: actions/setup-python@v5
+with:
+python-version: '3.11'
+* name: Install System Dependencies
+run: |
+sudo apt-get update
+sudo apt-get install -y 
+build-essential 
+ccache 
+git 
+libffi-dev 
+libssl-dev 
+openjdk-17-jdk 
+python3-pip 
+python3-setuptools 
+unzip 
+zip 
+zlib1g-dev
+* name: Cache Buildozer Global Directory
+uses: actions/cache@v4
+with:
+path: ~/.buildozer
+key: 
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            openjdk-17-jdk \
-            autoconf \
-            automake \
-            autopoint \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev \
-            gettext \
-            ccache
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install buildozer==1.6.0
-          pip install cython==0.29.37
-
-      - name: Verify project files
-        run: |
-          echo "========================================"
-          echo "VERIFYING PROJECT"
-          echo "========================================"
-
-          echo "Workspace:"
-          pwd
-
-          echo ""
-          echo "Files:"
-          ls -lah
-
-          echo ""
-          echo "Checking main.py..."
-          if [ ! -f "main.py" ]; then
-            echo "ERROR: main.py was not found!"
-            exit 1
-          fi
-
-          echo "main.py found."
-          wc -l main.py
-          wc -c main.py
-
-          echo ""
-          echo "Checking buildozer.spec..."
-          if [ ! -f "buildozer.spec" ]; then
-            echo "ERROR: buildozer.spec was not found!"
-            exit 1
-          fi
-
-          echo "buildozer.spec found."
-
-      - name: Create buildozer.spec
-        run: |
-          cat > buildozer.spec <<'EOF'
-          [app]
-
-          title = Superior Solomon Scientific Calculator
-          package.name = superiorsolomoncalculator
-          package.domain = com.siyomacodingprograms
-
-          source.dir = .
-          source.include_exts = py,png,jpg,jpeg,kv,atlas
-
-          version = 0.1
-
-          requirements = python3,kivy
-
-          orientation = portrait
-          fullscreen = 0
-
-          android.api = 35
-          android.minapi = 21
-          android.ndk = 28c
-          android.ndk_api = 21
-
-          android.archs = arm64-v8a
-
-          p4a.bootstrap = sdl2
-
-          android.allow_backup = True
-          android.permissions = INTERNET
-
-          log_level = 2
-          EOF
-
-          echo "buildozer.spec configured successfully."
-
-          echo ""
-          echo "===== BUILD CONFIGURATION ====="
-          cat buildozer.spec
-
-      - name: Clean previous build
-        run: |
-          echo "Cleaning old Buildozer files..."
-          rm -rf .buildozer
-          rm -rf bin
-          rm -f build.log
-          echo "Clean complete."
-
-      - name: Build APK
-        run: |
-          echo "========================================"
-          echo "STARTING ANDROID APK BUILD"
-          echo "========================================"
-          echo "Build started at:"
-          date
-
-          set -o pipefail
-
-          buildozer -v android debug 2>&1 | tee build.log
-
-          BUILD_STATUS=${PIPESTATUS[0]}
-
-          echo ""
-          echo "Buildozer exit code: $BUILD_STATUS"
-
-          if [ "$BUILD_STATUS" -ne 0 ]; then
-            echo ""
-            echo "========================================"
-            echo "BUILD FAILED"
-            echo "========================================"
-            echo ""
-            echo "Last 150 lines of build.log:"
-            tail -150 build.log
-            exit "$BUILD_STATUS"
-          fi
-
-          echo ""
-          echo "========================================"
-          echo "BUILD COMPLETED"
-          echo "========================================"
-
-      - name: Find APK
-        if: success()
-        run: |
-          echo "========================================"
-          echo "SEARCHING FOR APK"
-          echo "========================================"
-
-          mkdir -p apk-output
-
-          APK=$(find . -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: No APK was generated."
-
-            echo ""
-            echo "Contents of bin:"
-            if [ -d "bin" ]; then
-              find bin -type f -maxdepth 2 -print
-            else
-              echo "bin directory does not exist."
-            fi
-
-            exit 1
-          fi
-
-          echo "APK found:"
-          echo "$APK"
-
-          cp "$APK" apk-output/SuperiorSolomonCalculator.apk
-
-          echo ""
-          echo "APK details:"
-          ls -lh apk-output/SuperiorSolomonCalculator.apk
-
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Superior-Solomon-Calculator-APK
-          path: apk-output/SuperiorSolomonCalculator.apk
-          if-no-files-found: error
-
-      - name: Upload Build Log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Superior-Solomon-Build-Log
-          path: build.log
-          if-no-files-found: ignore
+runner.os−buildozer−r u n n e r point o s minus b u i l d o z e r minus
+𝑟𝑢𝑛𝑛𝑒𝑟.𝑜𝑠−𝑏𝑢𝑖𝑙𝑑𝑜𝑧𝑒𝑟−
+{{ hashFiles('buildozer.spec') }}
+restore-keys: |
+${{ runner.os }}-buildozer-
+* name: Cache Android SDK & NDK
+uses: actions/cache@v4
+with:
+path: ~/.android
+key: ${{ runner.os }}-android-sdk
+restore-keys: |
+${{ runner.os }}-android-sdk-
+* name: Install Buildozer & Cython
+run: |
+pip install --upgrade pip
+pip install buildozer cython virtualenv
+* name: Build APK with Buildozer
+run: |
+buildozer android debug
+id: build
+* name: Upload APK Artifact
+uses: actions/upload-artifact@v4
+if: success()
+with:
+name: Superior-Solomon-APK
+path: bin/*.apk
+* name: Upload Superior-Solomon-Build-Log
+uses: actions/upload-artifact@v4
+if: always()
+with:
+name: Superior-Solomon-Build-Log
+path: .buildozer/android/platform/build-*/build.log
+if-no-files-found: ignore
