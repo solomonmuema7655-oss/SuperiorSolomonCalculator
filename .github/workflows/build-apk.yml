@@ -6,33 +6,227 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
+
+      # =========================================================
+      # 1. CHECKOUT PROJECT
+      # =========================================================
       - name: Checkout project
         uses: actions/checkout@v4
 
+
+      # =========================================================
+      # 2. SET UP PYTHON 3.11
+      # =========================================================
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
+      # =========================================================
+      # 3. INSTALL ANDROID / BUILDOZER DEPENDENCIES
+      # =========================================================
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
+          sudo apt-get install -y \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            automake \
+            autopoint \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            gettext \
+            ccache
+
+
+      # =========================================================
+      # 4. INSTALL PYTHON BUILD TOOLS
+      # =========================================================
       - name: Install Buildozer
         run: |
-          python -m pip install --upgrade pip
-          pip install buildozer cython==0.29.37
+          python -m pip install --upgrade pip setuptools wheel
 
+          pip install \
+            buildozer==1.6.0 \
+            cython==0.29.37
+
+
+      # =========================================================
+      # 5. CHECK PROJECT FILES
+      # =========================================================
+      - name: Check project
+        run: |
+          echo "===== PROJECT FILES ====="
+          ls -la
+
+          echo "===== MAIN.PY ====="
+
+          if [ ! -f main.py ]; then
+            echo "ERROR: main.py was not found!"
+            exit 1
+          fi
+
+          echo "main.py found."
+          wc -c main.py
+
+          echo "===== BUILD SPEC ====="
+
+          if [ -f buildozer.spec ]; then
+            echo "Existing buildozer.spec found."
+          else
+            echo "No buildozer.spec found."
+          fi
+
+
+      # =========================================================
+      # 6. CREATE A CLEAN BUILDOZER SPEC
+      # =========================================================
+      - name: Create buildozer.spec
+        run: |
+          cat > buildozer.spec <<'EOF'
+          [app]
+
+          # Application name
+          title = Superior Solomon Scientific Calculator
+
+          # Package information
+          package.name = superiorsolomoncalculator
+          package.domain = com.siyomacodingprograms
+
+          # Application source
+          source.dir = .
+
+          # Files to include
+          source.include_exts = py,png,jpg,jpeg,kv,atlas
+
+          # Version
+          version = 0.1
+
+          # Python/Kivy requirements
+          requirements = python3,kivy
+
+          # Screen
+          orientation = portrait
+          fullscreen = 0
+
+          # Android
+          android.api = 35
+          android.minapi = 21
+          android.ndk = 28c
+          android.ndk_api = 21
+
+          # Build ARM64 first for maximum reliability
+          android.archs = arm64-v8a
+
+          # SDL2 is the Kivy Android bootstrap
+          p4a.bootstrap = sdl2
+
+          # Android settings
+          android.allow_backup = True
+
+          # Keep application permissions minimal
+          android.permissions = INTERNET
+
+          # Log level
+          log_level = 2
+
+          # Warning: do not add unnecessary requirements
+          EOF
+
+          echo "===== CREATED BUILDOZER.SPEC ====="
+          cat buildozer.spec
+
+
+      # =========================================================
+      # 7. CLEAN OLD BUILDOZER DATA
+      # =========================================================
+      - name: Clean Buildozer
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+
+          mkdir -p bin
+
+          echo "Old Buildozer files removed."
+
+
+      # =========================================================
+      # 8. BUILD APK
+      # =========================================================
       - name: Build APK
-        run: buildozer -v android debug
+        env:
+          PIP_NO_INPUT: "1"
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+        run: |
+          yes | buildozer android clean || true
 
+          buildozer -v android debug
+
+
+      # =========================================================
+      # 9. FIND APK
+      # =========================================================
+      - name: Find APK
+        if: success()
+        run: |
+          echo "===== APK SEARCH ====="
+
+          find . -type f \( \
+            -name "*.apk" \
+            -o -name "*.aab" \
+          \) -print
+
+          echo "===== BIN DIRECTORY ====="
+          ls -lah bin || true
+
+
+      # =========================================================
+      # 10. UPLOAD APK
+      # =========================================================
       - name: Upload APK
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: SuperiorSolomonCalculator-APK
-          path: bin/*.apk
+          name: Superior-Solomon-Calculator-APK
+          path: |
+            bin/*.apk
+          if-no-files-found: error
+
+
+      # =========================================================
+      # 11. SHOW BUILD FAILURE INFORMATION
+      # =========================================================
+      - name: Build diagnostics
+        if: failure()
+        run: |
+          echo "=========================================="
+          echo "BUILD FAILED"
+          echo "=========================================="
+
+          echo ""
+          echo "===== BIN ====="
+          ls -lah bin 2>/dev/null || true
+
+          echo ""
+          echo "===== APK FILES ====="
+          find . -type f -name "*.apk" -print || true
+
+          echo ""
+          echo "===== BUILDOZER LOGS ====="
+          find .buildozer -type f \
+            \( -name "*.log" -o -name "*.txt" \) \
+            -print 2>/dev/null | head -30 || true
