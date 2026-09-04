@@ -6,9 +6,9 @@ on:
     branches:
       - main
     paths:
-      - 'main.py'
-      - 'buildozer.spec'
-      - '.github/workflows/build-apk.yml'
+      - "main.py"
+      - "buildozer.spec"
+      - ".github/workflows/build-apk.yml"
 
 jobs:
   build-android:
@@ -23,17 +23,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: 'pip'
-
-      - name: Cache system dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.gradle
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
 
       - name: Install system dependencies
         run: |
@@ -60,36 +49,45 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install buildozer==1.6.0 cython==0.29.37
+          pip install buildozer==1.6.0
+          pip install cython==0.29.37
 
       - name: Verify project files
         run: |
-          echo "=== Workspace Information ==="
-          echo "Workspace: $GITHUB_WORKSPACE"
+          echo "========================================"
+          echo "VERIFYING PROJECT"
+          echo "========================================"
+
+          echo "Workspace:"
+          pwd
+
           echo ""
-          echo "=== Project Files ==="
-          ls -lah "$GITHUB_WORKSPACE"
+          echo "Files:"
+          ls -lah
+
           echo ""
-          echo "=== Verifying main.py ==="
-          if [ -f "$GITHUB_WORKSPACE/main.py" ]; then
-            echo "✓ main.py found successfully"
-            wc -l "$GITHUB_WORKSPACE/main.py"
-          else
-            echo "✗ ERROR: main.py not found"
-            exit 1
-          fi
-          echo ""
-          echo "=== Verifying buildozer.spec ==="
-          if [ -f "$GITHUB_WORKSPACE/buildozer.spec" ]; then
-            echo "✓ buildozer.spec found successfully"
-          else
-            echo "✗ ERROR: buildozer.spec not found"
+          echo "Checking main.py..."
+          if [ ! -f "main.py" ]; then
+            echo "ERROR: main.py was not found!"
             exit 1
           fi
 
+          echo "main.py found."
+          wc -l main.py
+          wc -c main.py
+
+          echo ""
+          echo "Checking buildozer.spec..."
+          if [ ! -f "buildozer.spec" ]; then
+            echo "ERROR: buildozer.spec was not found!"
+            exit 1
+          fi
+
+          echo "buildozer.spec found."
+
       - name: Create buildozer.spec
         run: |
-          cat > "$GITHUB_WORKSPACE/buildozer.spec" <<'EOF'
+          cat > buildozer.spec <<'EOF'
           [app]
 
           title = Superior Solomon Scientific Calculator
@@ -116,67 +114,104 @@ jobs:
           p4a.bootstrap = sdl2
 
           android.allow_backup = True
-
           android.permissions = INTERNET
 
           log_level = 2
           EOF
 
-          echo "✓ buildozer.spec created successfully"
+          echo "buildozer.spec configured successfully."
 
-      - name: Clean Buildozer cache
-        run: |
-          echo "Cleaning previous build artifacts..."
-          rm -rf "$GITHUB_WORKSPACE/.buildozer"
-          rm -rf "$GITHUB_WORKSPACE/bin"
-          echo "✓ Cache cleaned"
+          echo ""
+          echo "===== BUILD CONFIGURATION ====="
+          cat buildozer.spec
 
-      - name: Download Android NDK
+      - name: Clean previous build
         run: |
-          echo "Setting up Android NDK environment..."
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export ANDROID_NDK_ROOT=$HOME/android-ndk
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> $GITHUB_ENV
+          echo "Cleaning old Buildozer files..."
+          rm -rf .buildozer
+          rm -rf bin
+          rm -f build.log
+          echo "Clean complete."
 
       - name: Build APK
-        working-directory: ${{ github.workspace }}
         run: |
-          echo "=== Starting APK Build ==="
-          echo "Build timestamp: $(date)"
+          echo "========================================"
+          echo "STARTING ANDROID APK BUILD"
+          echo "========================================"
+          echo "Build started at:"
+          date
+
+          set -o pipefail
+
           buildozer -v android debug 2>&1 | tee build.log
-          BUILD_STATUS=$?
-          
-          if [ $BUILD_STATUS -ne 0 ]; then
-            echo "✗ Build failed with status code: $BUILD_STATUS"
+
+          BUILD_STATUS=${PIPESTATUS[0]}
+
+          echo ""
+          echo "Buildozer exit code: $BUILD_STATUS"
+
+          if [ "$BUILD_STATUS" -ne 0 ]; then
             echo ""
-            echo "=== Build Log (Last 100 lines) ==="
-            tail -100 build.log
-            exit 1
+            echo "========================================"
+            echo "BUILD FAILED"
+            echo "========================================"
+            echo ""
+            echo "Last 150 lines of build.log:"
+            tail -150 build.log
+            exit "$BUILD_STATUS"
           fi
-          
-          echo "✓ Build completed successfully"
+
+          echo ""
+          echo "========================================"
+          echo "BUILD COMPLETED"
+          echo "========================================"
 
       - name: Find APK
         if: success()
         run: |
-          echo "=== Searching for generated APK ==="
-          APK_PATH=$(find "$GITHUB_WORKSPACE" -type f -name "*.apk" -print)
-          
-          if [ -z "$APK_PATH" ]; then
-            echo "✗ ERROR: No APK file found"
-            find "$GITHUB_WORKSPACE/bin" -type f 2>/dev/null || echo "bin directory not found"
+          echo "========================================"
+          echo "SEARCHING FOR APK"
+          echo "========================================"
+
+          mkdir -p apk-output
+
+          APK=$(find . -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No APK was generated."
+
+            echo ""
+            echo "Contents of bin:"
+            if [ -d "bin" ]; then
+              find bin -type f -maxdepth 2 -print
+            else
+              echo "bin directory does not exist."
+            fi
+
             exit 1
           fi
-          
-          echo "✓ APK found:"
-          echo "$APK_PATH"
-          
+
+          echo "APK found:"
+          echo "$APK"
+
+          cp "$APK" apk-output/SuperiorSolomonCalculator.apk
+
           echo ""
-          echo "=== APK Details ==="
-          ls -lh "$APK_PATH"
-          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          echo "APK details:"
+          ls -lh apk-output/SuperiorSolomonCalculator.apk
 
       - name: Upload APK
         if: success()
-        uses
+        uses: actions/upload-artifact@v4
+        with:
+          name: Superior-Solomon-Calculator-APK
+          path: apk-output/SuperiorSolomonCalculator.apk
+          if-no-files-found: error
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Superior-Solomon-Build-Log
+          path: build.log
+          if-no-files-found: ignore
