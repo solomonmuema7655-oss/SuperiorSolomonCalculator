@@ -1,9 +1,6 @@
 name: Build Superior Solomon Calculator APK
 
-  on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+on: [workflow_dispatch, push]
 
 jobs:
   build-android:
